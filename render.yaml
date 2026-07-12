@@ -2,11 +2,10 @@ services:
   # Frontend PHP Service
   - type: web
     name: maseno-retail-frontend
-    runtime: php
+    runtime: docker
     plan: free
     rootDir: .
-    buildCommand: echo "No build step required"
-    startCommand: php -S 0.0.0.0:10000
+    dockerfilePath: ./Dockerfile
     healthCheckPath: /index.php
     envVars:
       # REQUIRED: Set your Neon database URL in Render dashboard
