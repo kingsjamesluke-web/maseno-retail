@@ -22,6 +22,20 @@ const client = new Client({
   connectionString: process.env.DATABASE_URL,
 });
 
+// Handle unexpected PostgreSQL connection drops without crashing
+client.on('error', (err) => {
+  console.error('Unexpected error on pg client:', err.message);
+});
+
+// Global error handlers to prevent process crashes
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled rejection:', err.message);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err.message);
+});
+
 // Run auto-migration if database is empty
 async function runMigration() {
   try {
