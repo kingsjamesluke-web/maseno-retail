@@ -1,10 +1,21 @@
 require('dotenv').config();
-const { Client } = require('pg');
 const express = require('express');
+const { Pool } = require('pg');
 
 const app = express();
 // Always run Node.js backend on port 3000 internally, regardless of Render's PORT env var
 const PORT = 3000;
+
+// Neon PostgreSQL Pool with SSL to suppress warnings
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
+
+// Handle unexpected PostgreSQL connection drops without crashing
+pool.on('error', (err) => {
+  console.error('Unexpected error on pg pool:', err.message);
+});
 
 // Allow CORS for frontend integration
 app.use((req, res, next) => {
@@ -16,16 +27,6 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json());
-
-// Neon Database Connection
-const client = new Client({
-  connectionString: process.env.DATABASE_URL,
-});
-
-// Handle unexpected PostgreSQL connection drops without crashing
-client.on('error', (err) => {
-  console.error('Unexpected error on pg client:', err.message);
-});
 
 // Global error handlers to prevent process crashes
 process.on('unhandledRejection', (err) => {
@@ -39,7 +40,7 @@ process.on('uncaughtException', (err) => {
 // Run auto-migration if database is empty
 async function runMigration() {
   try {
-    const check = await client.query(
+    const check = await pool.query(
       "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'users')"
     );
     const usersExists = check.rows[0].exists;
@@ -54,7 +55,7 @@ async function runMigration() {
       const statements = schema.split(';').map(s => s.trim()).filter(s => s.length > 0);
       for (const stmt of statements) {
         try {
-          await client.query(stmt);
+          await pool.query(stmt);
         } catch (stmtError) {
           // Skip COMMIT/ BEGIN-only statements if they fail
           if (!stmt.toLowerCase().startsWith('commit') && !stmt.toLowerCase().startsWith('begin')) {
@@ -67,9 +68,9 @@ async function runMigration() {
       console.log('✓ Database schema already exists');
       
       // Ensure default admin user exists
-      const userCheck = await client.query("SELECT id FROM users WHERE username = 'admin'");
+      const userCheck = await pool.query("SELECT id FROM users WHERE username = 'admin'");
       if (userCheck.rows.length === 0) {
-        await client.query(
+        await pool.query(
           "INSERT INTO users (username, password_hash, full_name, role, phone) VALUES ('admin', 'admin123', 'System Admin', 'admin', '+254700000001') ON CONFLICT (username) DO NOTHING"
         );
         console.log('✓ Default admin user created (username: admin, password: admin123)');
@@ -84,11 +85,9 @@ async function runMigration() {
 // Test database connection and start server
 async function startServer() {
   try {
-    await client.connect();
+    // Test connection
+    const result = await pool.query('SELECT NOW()');
     console.log('✓ Connected to Neon database successfully');
-
-    // Test query
-    const result = await client.query('SELECT NOW()');
     console.log('✓ Database test query successful:', result.rows[0].now);
 
     // Auto-migrate schema if needed
@@ -134,20 +133,6 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', database: 'Neon' });
 });
 
-// Helper: ensure client is connected before queries
-async function ensureConnected() {
-  try {
-    if (client.connectionState !== 'connected') {
-      console.log('Reconnecting to database...');
-      await client.connect();
-      console.log('Reconnected successfully');
-    }
-  } catch (err) {
-    console.error('Reconnection failed:', err.message);
-    throw err;
-  }
-}
-
 // Authentication routes
 app.post('/api/auth/login', async (req, res) => {
   try {
@@ -156,11 +141,9 @@ app.post('/api/auth/login', async (req, res) => {
       return res.json({ success: false, message: 'Username and password required.' });
     }
 
-    await ensureConnected();
-    
     let result;
     try {
-      result = await client.query(
+      result = await pool.query(
         'SELECT id, username, password_hash, full_name, role, phone, email, is_active FROM users WHERE username = $1',
         [username]
       );
@@ -203,8 +186,7 @@ app.post('/api/auth/login', async (req, res) => {
 app.post('/api/shifts/open', async (req, res) => {
   try {
     const { user_id, opening_float, notes } = req.body;
-    await ensureConnected();
-    const result = await client.query(
+    const result = await pool.query(
       'INSERT INTO cashier_shifts (user_id, opening_float, notes) VALUES ($1, $2, $3) RETURNING id',
       [user_id, opening_float || 0, notes || '']
     );
@@ -221,8 +203,7 @@ app.get('/api/shifts/current', async (req, res) => {
     if (!userId) {
       return res.json({ success: false, shift: null });
     }
-    await ensureConnected();
-    const result = await client.query(
+    const result = await pool.query(
       'SELECT * FROM cashier_shifts WHERE user_id = $1 AND status = \'open\' ORDER BY id DESC LIMIT 1',
       [userId]
     );
@@ -236,8 +217,7 @@ app.get('/api/shifts/current', async (req, res) => {
 app.post('/api/shifts/close', async (req, res) => {
   try {
     const { shift_id, actual_cash } = req.body;
-    await ensureConnected();
-    const result = await client.query(
+    const result = await pool.query(
       'UPDATE cashier_shifts SET closed_at = NOW(), expected_cash = $1, actual_cash = $2, variance = $3, status = \'closed\' WHERE id = $4 AND status = \'open\' RETURNING id',
       [actual_cash, actual_cash, 0, shift_id]
     );
@@ -254,7 +234,6 @@ app.post('/api/shifts/close', async (req, res) => {
 app.get('/api/shifts/list', async (req, res) => {
   try {
     const { from_date, to_date, user_id } = req.query;
-    await ensureConnected();
     let query = 'SELECT cs.*, u.full_name AS cashier_name FROM cashier_shifts cs JOIN users u ON u.id = cs.user_id WHERE 1=1';
     const params = [];
 
@@ -263,7 +242,7 @@ app.get('/api/shifts/list', async (req, res) => {
     if (user_id) { query += ' AND cs.user_id = $' + (params.length + 1); params.push(user_id); }
 
     query += ' ORDER BY cs.opened_at DESC';
-    const result = await client.query(query, params);
+    const result = await pool.query(query, params);
     res.json({ success: true, shifts: result.rows });
   } catch (error) {
     res.json({ success: true, shifts: [] });
