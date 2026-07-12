@@ -13,29 +13,8 @@ define('DB_NAME', getenv('DB_NAME') ?: 'maseno_retail');
 define('DB_USER', getenv('DB_USER') ?: 'postgres');
 define('DB_PASS', getenv('DB_PASS') ?: '');
 
-// If BACKEND_URL is set, skip direct DB connections entirely
-if (getenv('BACKEND_URL')) {
-    function is_db_available(): bool { return true; }
-    function db_status(): array {
-        return [
-            'available' => true,
-            'error'     => null,
-            'host'      => DB_HOST,
-            'port'      => DB_PORT,
-            'database'  => DB_NAME,
-            'user'      => DB_USER,
-        ];
-    }
-    function getDB(): PDO {
-        throw new RuntimeException('Database connections are managed by the Node.js backend in production.');
-    }
-    function register_db_check_shutdown(): void {
-        // Do nothing — backend handles data
-    }
-    // Stub auth/shift functions to avoid DB queries in backend mode
-    function current_shift(): ?array { return null; }
-    function require_shift(): int { return 0; }
-}
+// If BACKEND_URL is set, bypass local DB and let Node.js backend handle data
+$_backend_mode = getenv('BACKEND_URL');
 
 /** @var string|null Stores the last connection error message */
 $_db_error = null;
@@ -47,6 +26,9 @@ $_db_error = null;
  */
 function is_db_available(): bool
 {
+    global $_backend_mode;
+    if ($_backend_mode) return true;
+
     try {
         $pdo = _create_pdo_connection();
         return $pdo !== null;
@@ -63,7 +45,18 @@ function is_db_available(): bool
  */
 function db_status(): array
 {
-    global $_db_error;
+    global $_backend_mode, $_db_error;
+    if ($_backend_mode) {
+        return [
+            'available' => true,
+            'error'     => null,
+            'host'      => DB_HOST,
+            'port'      => DB_PORT,
+            'database'  => DB_NAME,
+            'user'      => DB_USER,
+        ];
+    }
+
     $available = false;
     try {
         $pdo = _create_pdo_connection();
@@ -93,6 +86,11 @@ function db_status(): array
  */
 function getDB(): PDO
 {
+    global $_backend_mode;
+    if ($_backend_mode) {
+        throw new RuntimeException('Database connections are managed by the Node.js backend in production.');
+    }
+
     static $pdo = null;
     if ($pdo === null) {
         $pdo = _create_pdo_connection();
@@ -136,6 +134,9 @@ function _create_pdo_connection(): ?PDO
  */
 function register_db_check_shutdown(): void
 {
+    global $_backend_mode;
+    if ($_backend_mode) return;
+
     register_shutdown_function(function () {
         // Only intercept if we're in an HTTP context and DB is down
         if (php_sapi_name() === 'cli') return;
