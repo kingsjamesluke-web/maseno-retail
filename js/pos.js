@@ -23,7 +23,10 @@
     // ── API URL helper (Apache reverse proxy handles /api routing) ──
     function apiUrl(path) {
         const clean = path.replace(/^\//, '');
-        // Always use relative path; Apache ProxyPass forwards /api to Node.js backend
+        // If already prefixed with 'api/', return as-is; otherwise prepend /api/
+        if (clean.startsWith('api/')) {
+            return '/' + clean;
+        }
         return '/api/' + clean;
     }
 
@@ -61,8 +64,8 @@
     // ── Load Products ──
     function loadProducts(search = '') {
         const url = search
-            ? apiUrl('api/products.php?search=' + encodeURIComponent(search))
-            : apiUrl('api/products.php');
+            ? apiUrl('products.php?search=' + encodeURIComponent(search))
+            : apiUrl('products.php');
 
         fetch(url)
             .then(r => r.json())
@@ -100,7 +103,7 @@
 
     // ── Cart Management ──
     function addToCart(id, name, price, qty) {
-        fetch(apiUrl('api/cart.php'), {
+        fetch(apiUrl('cart.php'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'add', product_id: id, quantity: qty })
@@ -122,7 +125,7 @@
             removeFromCart(id);
             return;
         }
-        fetch(apiUrl('api/cart.php'), {
+        fetch(apiUrl('cart.php'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'update', product_id: id, quantity: qty })
@@ -135,7 +138,7 @@
     }
 
     function removeFromCart(id) {
-        fetch(apiUrl('api/cart.php'), {
+        fetch(apiUrl('cart.php'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'remove', product_id: id })
@@ -148,7 +151,7 @@
     }
 
     function clearCart() {
-        fetch(apiUrl('api/cart.php'), {
+        fetch(apiUrl('cart.php'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'clear' })
@@ -158,7 +161,7 @@
     }
 
     function loadCart() {
-        fetch(apiUrl('api/cart.php?action=get'))
+        fetch(apiUrl('cart.php?action=get'))
             .then(r => r.json())
             .then(cart => {
                 renderCart(cart);
@@ -226,7 +229,7 @@
         dom.checkoutBtn.disabled = true;
         dom.checkoutBtn.textContent = 'Processing...';
 
-        fetch(apiUrl('api/checkout.php'), {
+        fetch(apiUrl('checkout.php'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -308,7 +311,7 @@
             return;
         }
 
-        fetch(apiUrl('api/customers.php?search=' + encodeURIComponent(query)))
+        fetch(apiUrl('customers.php?search=' + encodeURIComponent(query)))
             .then(r => r.json())
             .then(data => {
                 if (data && data.id) {
@@ -345,7 +348,7 @@
                     e.preventDefault();
                     // Try to find and add product directly
                     const query = this.value.trim();
-                    fetch(apiUrl('api/products.php?barcode=' + encodeURIComponent(query)))
+                    fetch(apiUrl('products.php?barcode=' + encodeURIComponent(query)))
                         .then(r => r.json())
                         .then(product => {
                             if (product && product.id) {
