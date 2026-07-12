@@ -20,13 +20,11 @@
         currentCustomerName: 'Walk-in Customer',
     };
 
-    // ── API URL helper (combined PHP+Node container uses localhost:3000) ──
+    // ── API URL helper (Apache reverse proxy handles /api routing) ──
     function apiUrl(path) {
-        const backendHost = (typeof BACKEND_URL !== 'undefined' && BACKEND_URL)
-            ? BACKEND_URL.replace(/\/$/, '')
-            : 'http://localhost:3000';
         const clean = path.replace(/^\//, '');
-        return backendHost + '/' + clean;
+        // Always use relative path; Apache ProxyPass forwards /api to Node.js backend
+        return '/api/' + clean;
     }
 
     // ── DOM References ──

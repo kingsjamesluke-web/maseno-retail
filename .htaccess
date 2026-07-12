@@ -1,0 +1,13 @@
+# Reverse proxy /api requests to internal Node.js backend
+<IfModule mod_proxy.c>
+    ProxyPass /api http://127.0.0.1:3000/api
+    ProxyPassReverse /api http://127.0.0.1:3000/api
+</IfModule>
+
+# Ensure mod_rewrite is enabled for clean URLs
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [L]
+</IfModule>

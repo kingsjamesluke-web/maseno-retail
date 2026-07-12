@@ -23,8 +23,8 @@ RUN chown -R www-data:www-data /var/www/html && \
     # Ensure directories are executable
     find /var/www/html -type d -exec chmod 755 {} \;
 
-# Enable Apache rewrite module (useful for clean URLs)
-RUN a2enmod rewrite
+# Enable Apache modules: rewrite, proxy, and proxy_http
+RUN a2enmod rewrite proxy proxy_http
 
 # Expose port 80 for HTTP traffic
 EXPOSE 80

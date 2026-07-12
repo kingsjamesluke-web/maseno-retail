@@ -28,8 +28,8 @@ function init_session(): void
  */
 function backend_auth(string $endpoint, array $payload): array
 {
-    $backendUrl = rtrim(getenv('BACKEND_URL') ?: 'http://localhost:3000', '/');
-    $url = $backendUrl . $endpoint;
+    // Use relative path; Apache reverse proxy forwards /api/* to Node.js backend
+    $url = $endpoint;
 
     $context = stream_context_create([
         'http' => [
