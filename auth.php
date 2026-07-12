@@ -59,6 +59,9 @@ function login_user(string $username, string $password): array
             'username' => $username,
             'password' => $password,
         ]);
+        if (!empty($result['success']) && !empty($result['user'])) {
+            $_SESSION['user'] = $result['user'];
+        }
         return $result;
     }
 
