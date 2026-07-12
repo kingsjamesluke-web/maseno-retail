@@ -28,21 +28,25 @@ function init_session(): void
  */
 function backend_auth(string $endpoint, array $payload): array
 {
-    // Use relative path; Apache reverse proxy forwards /api/* to Node.js backend
-    $url = $endpoint;
+    // Use absolute localhost URL for server-to-server requests
+    $url = 'http://127.0.0.1:3000' . $endpoint;
 
-    $context = stream_context_create([
-        'http' => [
-            'method'  => 'POST',
-            'header'  => "Content-Type: application/json\r\n",
-            'content' => json_encode($payload),
-            'timeout' => 10,
-        ]
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+        CURLOPT_POSTFIELDS     => json_encode($payload),
+        CURLOPT_TIMEOUT        => 10,
     ]);
 
-    $response = @file_get_contents($url, false, $context);
-    if ($response === false) {
-        return ['success' => false, 'message' => 'Could not reach authentication server at ' . $url];
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    if ($response === false || $httpCode !== 200) {
+        return ['success' => false, 'message' => 'Could not reach authentication server: ' . ($curlError ?: 'HTTP ' . $httpCode)];
     }
 
     $data = json_decode($response, true);
