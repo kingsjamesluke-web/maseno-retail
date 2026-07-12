@@ -2,8 +2,6 @@
 -- PostgreSQL 15+ Compatible
 -- Run: psql -U postgres -d maseno_retail -f sql/schema.sql
 
-BEGIN;
-
 -- ============================================================
 -- 1. CORE CONFIGURATION & SETTINGS
 -- ============================================================
@@ -477,5 +475,3 @@ $$;
 CREATE TRIGGER trg_journalize_sale
     AFTER INSERT ON sales
     FOR EACH ROW EXECUTE FUNCTION journalize_sale();
-
-COMMIT;

@@ -35,7 +35,19 @@ async function runMigration() {
       const fs = require('fs');
       const schemaPath = require('path').join(__dirname, 'sql', 'schema.sql');
       const schema = fs.readFileSync(schemaPath, 'utf8');
-      await client.query(schema);
+      
+      // Split by semicolons and execute each statement individually
+      const statements = schema.split(';').map(s => s.trim()).filter(s => s.length > 0);
+      for (const stmt of statements) {
+        try {
+          await client.query(stmt);
+        } catch (stmtError) {
+          // Skip COMMIT/ BEGIN-only statements if they fail
+          if (!stmt.toLowerCase().startsWith('commit') && !stmt.toLowerCase().startsWith('begin')) {
+            throw new Error(`Failed to execute: ${stmt.substring(0, 100)}... - ${stmtError.message}`);
+          }
+        }
+      }
       console.log('✓ Database schema applied successfully');
     } else {
       console.log('✓ Database schema already exists');
