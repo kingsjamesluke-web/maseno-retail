@@ -22,6 +22,39 @@ const client = new Client({
   connectionString: process.env.DATABASE_URL,
 });
 
+// Run auto-migration if database is empty
+async function runMigration() {
+  try {
+    const check = await client.query(
+      "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'users')"
+    );
+    const usersExists = check.rows[0].exists;
+
+    if (!usersExists) {
+      console.log('⚙ Running database migration...');
+      const fs = require('fs');
+      const schemaPath = require('path').join(__dirname, 'sql', 'schema.sql');
+      const schema = fs.readFileSync(schemaPath, 'utf8');
+      await client.query(schema);
+      console.log('✓ Database schema applied successfully');
+    } else {
+      console.log('✓ Database schema already exists');
+      
+      // Ensure default admin user exists
+      const userCheck = await client.query("SELECT id FROM users WHERE username = 'admin'");
+      if (userCheck.rows.length === 0) {
+        await client.query(
+          "INSERT INTO users (username, password_hash, full_name, role, phone) VALUES ('admin', 'admin123', 'System Admin', 'admin', '+254700000001') ON CONFLICT (username) DO NOTHING"
+        );
+        console.log('✓ Default admin user created (username: admin, password: admin123)');
+      }
+    }
+  } catch (error) {
+    console.error('✗ Migration failed:', error.message);
+    throw error;
+  }
+}
+
 // Test database connection and start server
 async function startServer() {
   try {
@@ -32,7 +65,8 @@ async function startServer() {
     const result = await client.query('SELECT NOW()');
     console.log('✓ Database test query successful:', result.rows[0].now);
 
-    // Keep connection open for API routes
+    // Auto-migrate schema if needed
+    await runMigration();
 
     // Start Express server with error handling
     const server = app.listen(PORT, () => {
