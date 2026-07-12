@@ -13,15 +13,24 @@ require_once __DIR__ . '/crm.php';
 require_once __DIR__ . '/mpesa_sandbox.php';
 
 $user = require_auth();
-$shift = current_shift();
+$shift = defined('BACKEND_MODE') && BACKEND_MODE ? null : current_shift();
 
 // Dashboard data
-$todaySales    = today_sales_summary();
-$lowStock      = get_low_stock_products();
-$expiryAlerts  = get_expiry_alerts();
-$financials    = dashboard_financial_summary();
-$crmStats      = crm_dashboard_stats();
-$expiryStats   = expiry_dashboard_stats();
+if (defined('BACKEND_MODE') && BACKEND_MODE) {
+    $todaySales   = [];
+    $lowStock     = [];
+    $expiryAlerts = ['critical' => [], 'warning' => []];
+    $financials   = ['today' => [], 'month' => []];
+    $crmStats     = ['total_customers' => 0, 'new_this_month' => 0, 'top_customers' => []];
+    $expiryStats  = ['expired_loss_value' => 0];
+} else {
+    $todaySales    = today_sales_summary();
+    $lowStock      = get_low_stock_products();
+    $expiryAlerts  = get_expiry_alerts();
+    $financials    = dashboard_financial_summary();
+    $crmStats      = crm_dashboard_stats();
+    $expiryStats   = expiry_dashboard_stats();
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">

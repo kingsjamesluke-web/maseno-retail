@@ -89,6 +89,15 @@ function require_auth(): array
 {
     init_session();
     if (empty($_SESSION['user'])) {
+        // In backend mode, bypass PHP auth - Node.js backend handles auth
+        if (defined('BACKEND_MODE') && BACKEND_MODE) {
+            return [
+                'id' => 0,
+                'username' => 'backend_user',
+                'full_name' => 'Backend User',
+                'role' => 'admin',
+            ];
+        }
         redirect('/login.php', 'Please log in first.', 'warning');
     }
     return $_SESSION['user'];

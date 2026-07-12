@@ -79,6 +79,9 @@ define('STORE_PHONE',      store_config('store_phone', '+254700000000'));
 define('STORE_EMAIL',      store_config('store_email', 'info@masenoretail.co.ke'));
 define('STORE_URL',        store_config('store_url', 'http://localhost:8080'));
 
+// Runtime mode detection
+define('BACKEND_MODE', (bool) getenv('BACKEND_URL'));
+
 /**
  * JSON response helper.
  */

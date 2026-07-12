@@ -8,8 +8,8 @@ require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/pos_backend.php';
 
 $user = require_auth();
-$shift = current_shift();
-$categories = get_categories();
+$shift = defined('BACKEND_MODE') && BACKEND_MODE ? null : current_shift();
+$categories = defined('BACKEND_MODE') && BACKEND_MODE ? [] : get_categories();
 ?>
 <!DOCTYPE html>
 <html lang="en">

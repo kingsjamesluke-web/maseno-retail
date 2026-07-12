@@ -13,6 +13,30 @@ define('DB_NAME', getenv('DB_NAME') ?: 'maseno_retail');
 define('DB_USER', getenv('DB_USER') ?: 'postgres');
 define('DB_PASS', getenv('DB_PASS') ?: '');
 
+// If BACKEND_URL is set, skip direct DB connections entirely
+if (getenv('BACKEND_URL')) {
+    function is_db_available(): bool { return true; }
+    function db_status(): array {
+        return [
+            'available' => true,
+            'error'     => null,
+            'host'      => DB_HOST,
+            'port'      => DB_PORT,
+            'database'  => DB_NAME,
+            'user'      => DB_USER,
+        ];
+    }
+    function getDB(): PDO {
+        throw new RuntimeException('Database connections are managed by the Node.js backend in production.');
+    }
+    function register_db_check_shutdown(): void {
+        // Do nothing — backend handles data
+    }
+    // Stub auth/shift functions to avoid DB queries in backend mode
+    function current_shift(): ?array { return null; }
+    function require_shift(): int { return 0; }
+}
+
 /** @var string|null Stores the last connection error message */
 $_db_error = null;
 
