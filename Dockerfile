@@ -29,9 +29,8 @@ RUN a2enmod rewrite
 # Expose port 80 for HTTP traffic
 EXPOSE 80
 
-# environment variable BACKEND_URL can be set at runtime
-# Example: docker run -e BACKEND_URL=https://your-backend.onrender.com ...
-ENV BACKEND_URL=""
+# Default to internal Node.js backend in combined container mode
+ENV BACKEND_URL="http://localhost:3000"
 
 # Health check (optional but recommended for Render)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \

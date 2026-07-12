@@ -24,13 +24,44 @@ function init_session(): void
 }
 
 /**
- * Log in a user by verifying password against bcrypt hash.
- * On success stores user data in session.
- *
- * @return array ['success' => bool, 'message' => string, 'user' => array|null]
+ * Call the Node.js backend authentication endpoint.
+ */
+function backend_auth(string $endpoint, array $payload): array
+{
+    $backendUrl = rtrim(getenv('BACKEND_URL') ?: 'http://localhost:3000', '/');
+    $url = $backendUrl . $endpoint;
+
+    $context = stream_context_create([
+        'http' => [
+            'method'  => 'POST',
+            'header'  => "Content-Type: application/json\r\n",
+            'content' => json_encode($payload),
+            'timeout' => 10,
+        ]
+    ]);
+
+    $response = @file_get_contents($url, false, $context);
+    if ($response === false) {
+        return ['success' => false, 'message' => 'Could not reach authentication server at ' . $url];
+    }
+
+    $data = json_decode($response, true);
+    return is_array($data) ? $data : ['success' => false, 'message' => 'Invalid response from authentication server.'];
+}
+
+/**
+ * Log in a user by delegating to the Node.js backend.
  */
 function login_user(string $username, string $password): array
 {
+    if (defined('BACKEND_MODE') && BACKEND_MODE) {
+        $result = backend_auth('/api/auth/login', [
+            'username' => $username,
+            'password' => $password,
+        ]);
+        return $result;
+    }
+
     $db = getDB();
     $stmt = $db->prepare("
         SELECT id, username, password_hash, full_name, role, phone, email, is_active
@@ -51,14 +82,12 @@ function login_user(string $username, string $password): array
         return ['success' => false, 'message' => 'Invalid username or password.', 'user' => null];
     }
 
-    // Rehash if needed (PHP's built-in does this automatically with PASSWORD_DEFAULT)
     if (password_needs_rehash($user['password_hash'], PASSWORD_BCRYPT)) {
         $newHash = password_hash($password, PASSWORD_BCRYPT);
         $upd = $db->prepare("UPDATE users SET password_hash = ? WHERE id = ?");
         $upd->execute([$newHash, $user['id']]);
     }
 
-    // Remove hash from session payload
     unset($user['password_hash']);
     $_SESSION['user'] = $user;
 
@@ -89,15 +118,6 @@ function require_auth(): array
 {
     init_session();
     if (empty($_SESSION['user'])) {
-        // In backend mode, bypass PHP auth - Node.js backend handles auth
-        if (defined('BACKEND_MODE') && BACKEND_MODE) {
-            return [
-                'id' => 0,
-                'username' => 'backend_user',
-                'full_name' => 'Backend User',
-                'role' => 'admin',
-            ];
-        }
         redirect('/login.php', 'Please log in first.', 'warning');
     }
     return $_SESSION['user'];
@@ -131,19 +151,24 @@ function current_user(): ?array
 // ──────────────────────────────────────────────────────────────
 
 /**
- * Open a new cashier shift for the given user.
- * Only one open shift per user is allowed (enforced by DB unique constraint).
- *
- * @param int    $userId
- * @param float  $openingFloat  Cash float at shift start
- * @param string $notes         Optional notes
- * @return array ['success' => bool, 'shift_id' => int|null, 'message' => string]
+ * Open a new cashier shift for the given user via backend.
  */
 function open_shift(int $userId, float $openingFloat = 0.00, string $notes = ''): array
 {
-    $db = getDB();
+    if (defined('BACKEND_MODE') && BACKEND_MODE) {
+        $result = backend_auth('/api/shifts/open', [
+            'user_id' => $userId,
+            'opening_float' => $openingFloat,
+            'notes' => $notes,
+        ]);
+        if (!empty($result['success']) && !empty($result['shift_id'])) {
+            $_SESSION['shift_id'] = (int)$result['shift_id'];
+            $_SESSION['shift_open_at'] = date('c');
+        }
+        return $result;
+    }
 
-    // Check for existing open shift
+    $db = getDB();
     $check = $db->prepare("
         SELECT id FROM cashier_shifts
         WHERE user_id = ? AND status = 'open'
@@ -169,11 +194,15 @@ function open_shift(int $userId, float $openingFloat = 0.00, string $notes = '')
 }
 
 /**
- * Get the currently active shift for the logged-in user.
- * Returns null if no open shift exists.
+ * Get the currently active shift for the logged-in user via backend.
  */
 function current_shift(): ?array
 {
+    if (defined('BACKEND_MODE') && BACKEND_MODE) {
+        $result = backend_auth('/api/shifts/current', []);
+        return !empty($result['success']) && !empty($result['shift']) ? $result['shift'] : null;
+    }
+
     $user = current_user();
     if (!$user) return null;
 
@@ -190,13 +219,20 @@ function current_shift(): ?array
 }
 
 /**
- * Get the active shift ID from session or DB.
+ * Get the active shift ID from session or backend.
  */
 function require_shift(): int
 {
-    // Fast path: session
+    if (defined('BACKEND_MODE') && BACKEND_MODE) {
+        $result = backend_auth('/api/shifts/current', []);
+        if (!empty($result['success']) && !empty($result['shift']['id'])) {
+            $_SESSION['shift_id'] = (int)$result['shift']['id'];
+            return (int)$result['shift']['id'];
+        }
+        redirect('/shift/open.php', 'You must open a shift before making sales.', 'warning');
+    }
+
     if (!empty($_SESSION['shift_id'])) {
-        // Verify it's still open in DB
         $db = getDB();
         $stmt = $db->prepare("SELECT id FROM cashier_shifts WHERE id = ? AND status = 'open'");
         $stmt->execute([(int)$_SESSION['shift_id']]);
@@ -204,7 +240,6 @@ function require_shift(): int
         if ($row) return (int)$row['id'];
     }
 
-    // Slow path: query DB
     $user = current_user();
     if (!$user) {
         redirect('/login.php', 'Please log in.', 'warning');
@@ -228,13 +263,18 @@ function require_shift(): int
 }
 
 /**
- * Close the current shift, recording expected vs actual cash.
- *
- * @param float $actualCash Physical cash counted at the till
- * @return array ['success' => bool, 'message' => string, 'data' => array|null]
+ * Close the current shift via backend.
  */
 function close_shift(float $actualCash): array
 {
+    if (defined('BACKEND_MODE') && BACKEND_MODE) {
+        $shiftId = $_SESSION['shift_id'] ?? 0;
+        return backend_auth('/api/shifts/close', [
+            'shift_id' => $shiftId,
+            'actual_cash' => $actualCash,
+        ]);
+    }
+
     $user  = require_auth();
     $shift = current_shift();
     if (!$shift) {
@@ -242,15 +282,10 @@ function close_shift(float $actualCash): array
     }
 
     $db = getDB();
-
-    // Calculate expected cash: opening_float + cash sales - cash expenses during shift
     $calc = $db->prepare("
-        SELECT
-            COALESCE(SUM(s.total), 0) AS cash_sales_total
+        SELECT COALESCE(SUM(s.total), 0) AS cash_sales_total
         FROM sales s
-        WHERE s.shift_id = ?
-          AND s.payment_method = 'cash'
-          AND s.sale_status = 'complete'
+        WHERE s.shift_id = ? AND s.payment_method = 'cash' AND s.sale_status = 'complete'
     ");
     $calc->execute([$shift['id']]);
     $cashSales = (float) $calc->fetchColumn();
@@ -260,71 +295,37 @@ function close_shift(float $actualCash): array
 
     $stmt = $db->prepare("
         UPDATE cashier_shifts
-        SET closed_at       = NOW(),
-            expected_cash   = ?,
-            actual_cash     = ?,
-            variance        = ?,
-            status          = 'closed'
+        SET closed_at = NOW(), expected_cash = ?, actual_cash = ?, variance = ?, status = 'closed'
         WHERE id = ? AND status = 'open'
         RETURNING id, opened_at, closed_at, opening_float, expected_cash, actual_cash, variance
     ");
     $stmt->execute([$expectedCash, $actualCash, $variance, $shift['id']]);
     $closed = $stmt->fetch();
 
-    // Clear session shift
     unset($_SESSION['shift_id'], $_SESSION['shift_open_at']);
-
-    // Create journal entry for shift close (record cash variance)
-    if (abs($variance) > 0.01) {
-        $jeStmt = $db->prepare("
-            INSERT INTO journal_entries (entry_date, reference_type, reference_id, description, created_by)
-            VALUES (CURRENT_DATE, 'shift_close', ?, ?, ?)
-            RETURNING id
-        ");
-        $desc = sprintf('Shift #%d close: variance KES %+.2f', $shift['id'], $variance);
-        $jeStmt->execute([$shift['id'], $desc, $user['id']]);
-        $journalId = $jeStmt->fetchColumn();
-
-        if ($variance > 0) {
-            // Surplus → credit income
-            $db->prepare("
-                INSERT INTO journal_lines (journal_id, account_id, debit_amount, credit_amount)
-                SELECT ?, id, 0, ? FROM gl_accounts WHERE account_code = '1100'
-            ")->execute([$journalId, abs($variance)]);
-            $db->prepare("
-                INSERT INTO journal_lines (journal_id, account_id, debit_amount, credit_amount)
-                SELECT ?, id, ?, 0 FROM gl_accounts WHERE account_code = '4100'
-            ")->execute([$journalId, abs($variance)]);
-        } else {
-            // Shortage → expense
-            $db->prepare("
-                INSERT INTO journal_lines (journal_id, account_id, debit_amount, credit_amount)
-                SELECT ?, id, ?, 0 FROM gl_accounts WHERE account_code = '6200'
-            ")->execute([$journalId, abs($variance)]);
-            $db->prepare("
-                INSERT INTO journal_lines (journal_id, account_id, debit_amount, credit_amount)
-                SELECT ?, id, 0, ? FROM gl_accounts WHERE account_code = '1100'
-            ")->execute([$journalId, abs($variance)]);
-        }
-    }
 
     return [
         'success' => true,
         'message' => sprintf('Shift #%d closed. Expected: KES %s | Actual: KES %s | Variance: KES %+.2f',
-            $closed['id'],
-            number_format($closed['expected_cash'], 2),
-            number_format($closed['actual_cash'], 2),
-            $variance
-        ),
+            $closed['id'], number_format($closed['expected_cash'], 2), number_format($closed['actual_cash'], 2), $variance),
         'data' => $closed,
     ];
 }
 
 /**
- * List shifts for a given date range.
+ * List shifts for a given date range via backend.
  */
 function list_shifts(string $fromDate = '', string $toDate = '', ?int $userId = null): array
 {
+    if (defined('BACKEND_MODE') && BACKEND_MODE) {
+        $result = backend_auth('/api/shifts/list', [
+            'from_date' => $fromDate,
+            'to_date' => $toDate,
+            'user_id' => $userId,
+        ]);
+        return $result['shifts'] ?? [];
+    }
+
     $db = getDB();
     $sql = "
         SELECT cs.*, u.full_name AS cashier_name, u.username

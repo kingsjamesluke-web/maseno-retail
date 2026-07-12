@@ -22,45 +22,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($username) || empty($password)) {
         $error = 'Please enter username and password.';
-    } elseif (defined('BACKEND_MODE') && BACKEND_MODE) {
-        // Delegate authentication to the Node.js backend
-        $rawBackendUrl = getenv('BACKEND_URL');
-        $backendUrl = rtrim($rawBackendUrl ?: 'http://localhost:3000', '/');
-
-        if (empty($rawBackendUrl)) {
-            // In combined container mode, localhost:3000 is the default
-            $backendUrl = 'http://localhost:3000';
-        }
-
-        $endpoint = $backendUrl . '/api/auth/login';
-
-        $payload = json_encode([
-            'username' => $username,
-            'password' => $password,
-        ]);
-
-        $context = stream_context_create([
-            'http' => [
-                'method'  => 'POST',
-                'header'  => "Content-Type: application/json\r\n",
-                'content' => $payload,
-                'timeout' => 10,
-            ]
-        ]);
-
-        $response = @file_get_contents($endpoint, false, $context);
-        if ($response === false) {
-            $error = 'Could not reach authentication server at: ' . htmlspecialchars($endpoint) . '. Please ensure the Node.js backend is running and BACKEND_URL is correct in Render.';
-        } else {
-            $data = json_decode($response, true);
-            if (!empty($data['success']) && !empty($data['user'])) {
-                $_SESSION['user'] = $data['user'];
-                header('Location: index.php');
-                exit;
-            } else {
-                $error = $data['message'] ?? 'Invalid username or password.';
-            }
-        }
     } else {
         $result = login_user($username, $password);
         if ($result['success']) {
