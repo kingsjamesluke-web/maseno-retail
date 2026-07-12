@@ -67,8 +67,7 @@ CREATE TABLE IF NOT EXISTS cashier_shifts (
     status          VARCHAR(16) DEFAULT 'open'
                     CHECK (status IN ('open','closed','reconciled')),
     notes           TEXT,
-    CONSTRAINT unique_open_shift UNIQUE (user_id) -- only one open shift per user
-    WHERE status = 'open'
+    -- Note: unique open-shift-per-user is enforced in application logic
 );
 
 -- ============================================================
