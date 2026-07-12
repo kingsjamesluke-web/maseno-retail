@@ -33,8 +33,8 @@ $categories = defined('BACKEND_MODE') && BACKEND_MODE ? [] : get_categories();
                 <a href="accounting.php"><span class="nav-icon">💰</span> Accounting</a>
                 <a href="expiry.php"><span class="nav-icon">⏰</span> Expiry Tracker</a>
                 <a href="crm.php"><span class="nav-icon">👥</span> Customers</a>
-                <a href="mpesa.php"><span class="nav-icon">📱</span> M-Pesa</a>
-                <a href="shift.php"><span class="nav-icon">🔄</span> Shift Manager</a>
+                <a href="mpesa_sandbox.php"><span class="nav-icon">📱</span> M-Pesa</a>
+                <a href="shift/open.php"><span class="nav-icon">🔄</span> Shift Manager</a>
             </nav>
             <div class="sidebar-footer">
                 <div><?= htmlspecialchars($user['full_name']) ?> (<?= $user['role'] ?>)</div>
