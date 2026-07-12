@@ -3,7 +3,8 @@ const { Client } = require('pg');
 const express = require('express');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+// Always run Node.js backend on port 3000 internally, regardless of Render's PORT env var
+const PORT = 3000;
 
 // Allow CORS for frontend integration
 app.use((req, res, next) => {

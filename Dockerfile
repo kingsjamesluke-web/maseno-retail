@@ -31,6 +31,8 @@ EXPOSE 80
 
 # Default to internal Node.js backend in combined container mode
 ENV BACKEND_URL="http://localhost:3000"
+# Force Apache to listen on port 80 (Render maps 10000 -> 80 internally)
+ENV PORT=80
 
 # Health check (optional but recommended for Render)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
