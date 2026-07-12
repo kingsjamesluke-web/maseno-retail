@@ -24,34 +24,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Please enter username and password.';
     } elseif (defined('BACKEND_MODE') && BACKEND_MODE) {
         // Delegate authentication to the Node.js backend
-        $backendUrl = rtrim(getenv('BACKEND_URL'), '/');
-        $endpoint = $backendUrl . '/api/auth/login';
+        $rawBackendUrl = getenv('BACKEND_URL');
+        $backendUrl = rtrim($rawBackendUrl, '/');
 
-        $payload = json_encode([
-            'username' => $username,
-            'password' => $password,
-        ]);
-
-        $context = stream_context_create([
-            'http' => [
-                'method'  => 'POST',
-                'header'  => "Content-Type: application/json\r\n",
-                'content' => $payload,
-                'timeout' => 10,
-            ]
-        ]);
-
-        $response = @file_get_contents($endpoint, false, $context);
-        if ($response === false) {
-            $error = 'Could not reach authentication server. Please try again.';
+        if (empty($backendUrl)) {
+            $error = 'BACKEND_URL is not configured. Please set the BACKEND_URL environment variable in your Render dashboard to point to your Node.js backend (e.g., https://your-backend.onrender.com).';
         } else {
-            $data = json_decode($response, true);
-            if (!empty($data['success']) && !empty($data['user'])) {
-                $_SESSION['user'] = $data['user'];
-                header('Location: index.php');
-                exit;
+            $endpoint = $backendUrl . '/api/auth/login';
+
+            $payload = json_encode([
+                'username' => $username,
+                'password' => $password,
+            ]);
+
+            $context = stream_context_create([
+                'http' => [
+                    'method'  => 'POST',
+                    'header'  => "Content-Type: application/json\r\n",
+                    'content' => $payload,
+                    'timeout' => 10,
+                ]
+            ]);
+
+            $response = @file_get_contents($endpoint, false, $context);
+            if ($response === false) {
+                $error = 'Could not reach authentication server at: ' . htmlspecialchars($endpoint) . '. Please ensure the Node.js backend is running and BACKEND_URL is correct in Render.';
             } else {
-                $error = $data['message'] ?? 'Invalid username or password.';
+                $data = json_decode($response, true);
+                if (!empty($data['success']) && !empty($data['user'])) {
+                    $_SESSION['user'] = $data['user'];
+                    header('Location: index.php');
+                    exit;
+                } else {
+                    $error = $data['message'] ?? 'Invalid username or password.';
+                }
             }
         }
     } else {
