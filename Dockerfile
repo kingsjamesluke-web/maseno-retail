@@ -15,6 +15,9 @@ WORKDIR /var/www/html
 # Copy all frontend files into the Apache document root
 COPY . /var/www/html/
 
+# Deploy Apache virtual host with reverse proxy configuration
+RUN cp /var/www/html/apache-site.conf /etc/apache2/sites-available/000-default.conf
+
 # Set correct file permissions
 RUN chown -R www-data:www-data /var/www/html && \
     chmod -R 755 /var/www/html && \

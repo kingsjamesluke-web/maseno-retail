@@ -25,6 +25,8 @@ for i in {1..30}; do
     sleep 1
 done
 
-# Start Apache in foreground
+# Enable default site and start Apache in foreground
 echo "Starting Apache..."
+a2dissite 000-default >/dev/null 2>&1 || true
+a2ensite 000-default >/dev/null 2>&1 || true
 exec apache2-foreground
