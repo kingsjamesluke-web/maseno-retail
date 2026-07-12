@@ -19,11 +19,14 @@ for i in {1..30}; do
     fi
     if [ $i -eq 30 ]; then
         echo "✗ Node.js backend failed to start"
-        kill $NODE_PID
+        kill $NODE_PID 2>/dev/null || true
         exit 1
     fi
     sleep 1
 done
+
+# Trap EXIT to clean up Node.js process safely
+trap 'kill $NODE_PID 2>/dev/null || true' EXIT
 
 # Enable default site and start Apache in foreground
 echo "Starting Apache..."
