@@ -89,15 +89,15 @@ if (defined('BACKEND_MODE') && BACKEND_MODE) {
             <!-- Stats Grid -->
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-value">KES <?= number_format($todaySales['total_sales'], 2) ?></div>
+                    <div class="stat-value">KES <?= number_format($todaySales['total_sales'] ?? 0, 2) ?></div>
                     <div class="stat-label">Today's Sales</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value"><?= $todaySales['transaction_count'] ?></div>
+                    <div class="stat-value"><?= $todaySales['transaction_count'] ?? 0 ?></div>
                     <div class="stat-label">Transactions Today</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">KES <?= number_format($financials['today']['gross_margin'], 2) ?></div>
+                    <div class="stat-value">KES <?= number_format($financials['today']['gross_margin'] ?? 0, 2) ?></div>
                     <div class="stat-label">Today's Gross Margin</div>
                 </div>
                 <div class="stat-card stat-warning">
@@ -105,11 +105,11 @@ if (defined('BACKEND_MODE') && BACKEND_MODE) {
                     <div class="stat-label">Low Stock Items</div>
                 </div>
                 <div class="stat-card stat-danger">
-                    <div class="stat-value"><?= count($expiryAlerts['critical']) ?></div>
+                    <div class="stat-value"><?= count($expiryAlerts['critical'] ?? []) ?></div>
                     <div class="stat-label">Critical Expiry Alerts</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value"><?= $crmStats['total_customers'] ?></div>
+                    <div class="stat-value"><?= $crmStats['total_customers'] ?? 0 ?></div>
                     <div class="stat-label">Total Customers</div>
                 </div>
             </div>
@@ -194,33 +194,33 @@ if (defined('BACKEND_MODE') && BACKEND_MODE) {
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
                             <div>
                                 <div class="text-muted" style="font-size:.85rem;">Cash</div>
-                                <div style="font-weight:700; font-size:1.1rem;">KES <?= number_format($todaySales['cash_sales'], 2) ?></div>
+                                <div style="font-weight:700; font-size:1.1rem;">KES <?= number_format($todaySales['cash_sales'] ?? 0, 2) ?></div>
                             </div>
                             <div>
                                 <div class="text-muted" style="font-size:.85rem;">M-Pesa</div>
-                                <div style="font-weight:700; font-size:1.1rem;">KES <?= number_format($todaySales['mpesa_sales'], 2) ?></div>
+                                <div style="font-weight:700; font-size:1.1rem;">KES <?= number_format($todaySales['mpesa_sales'] ?? 0, 2) ?></div>
                             </div>
                             <div>
                                 <div class="text-muted" style="font-size:.85rem;">Card</div>
-                                <div style="font-weight:700; font-size:1.1rem;">KES <?= number_format($todaySales['card_sales'], 2) ?></div>
+                                <div style="font-weight:700; font-size:1.1rem;">KES <?= number_format($todaySales['card_sales'] ?? 0, 2) ?></div>
                             </div>
                             <div>
                                 <div class="text-muted" style="font-size:.85rem;">Avg Transaction</div>
-                                <div style="font-weight:700; font-size:1.1rem;">KES <?= number_format($todaySales['avg_transaction'], 2) ?></div>
+                                <div style="font-weight:700; font-size:1.1rem;">KES <?= number_format($todaySales['avg_transaction'] ?? 0, 2) ?></div>
                             </div>
                         </div>
                         <hr style="margin:15px 0;">
                         <div class="flex-between">
                             <span><strong>COGS</strong></span>
-                            <span>KES <?= number_format($financials['today']['cogs'], 2) ?></span>
+                            <span>KES <?= number_format($financials['today']['cogs'] ?? 0, 2) ?></span>
                         </div>
                         <div class="flex-between">
                             <span><strong>Expenses</strong></span>
-                            <span>KES <?= number_format($financials['today']['expenses'], 2) ?></span>
+                            <span>KES <?= number_format($financials['today']['expenses'] ?? 0, 2) ?></span>
                         </div>
                         <div class="flex-between" style="font-size:1.1rem; font-weight:700; color:var(--primary); margin-top:8px;">
                             <span>Net Margin</span>
-                            <span>KES <?= number_format($financials['today']['net_margin'], 2) ?></span>
+                            <span>KES <?= number_format($financials['today']['net_margin'] ?? 0, 2) ?></span>
                         </div>
                     </div>
                 </div>
@@ -233,30 +233,30 @@ if (defined('BACKEND_MODE') && BACKEND_MODE) {
                     <div class="card-body">
                         <div class="flex-between" style="padding:8px 0;">
                             <span>Month Revenue</span>
-                            <span style="font-weight:700;">KES <?= number_format($financials['month']['revenue'], 2) ?></span>
+                            <span style="font-weight:700;">KES <?= number_format($financials['month']['revenue'] ?? 0, 2) ?></span>
                         </div>
                         <div class="flex-between" style="padding:8px 0;">
                             <span>Month Expenses</span>
-                            <span style="font-weight:700; color:var(--danger);">KES <?= number_format($financials['month']['expenses'], 2) ?></span>
+                            <span style="font-weight:700; color:var(--danger);">KES <?= number_format($financials['month']['expenses'] ?? 0, 2) ?></span>
                         </div>
                         <div class="flex-between" style="padding:8px 0; font-size:1.2rem; border-top:2px solid var(--light-gray);">
                             <span>Net Position</span>
-                            <span style="font-weight:700; color:<?= $financials['month']['net'] >= 0 ? 'var(--secondary)' : 'var(--danger)' ?>;">
-                                KES <?= number_format($financials['month']['net'], 2) ?>
+                            <span style="font-weight:700; color:<?= ($financials['month']['net'] ?? 0) >= 0 ? 'var(--secondary)' : 'var(--danger)' ?>;">
+                                KES <?= number_format($financials['month']['net'] ?? 0, 2) ?>
                             </span>
                         </div>
                         <hr>
                         <div class="flex-between">
                             <span>Total Customers</span>
-                            <span><?= $crmStats['total_customers'] ?></span>
+                            <span><?= $crmStats['total_customers'] ?? 0 ?></span>
                         </div>
                         <div class="flex-between">
                             <span>New This Month</span>
-                            <span><?= $crmStats['new_this_month'] ?></span>
+                            <span><?= $crmStats['new_this_month'] ?? 0 ?></span>
                         </div>
                         <div class="flex-between">
                             <span>Expired Stock Loss</span>
-                            <span style="color:var(--danger);">KES <?= number_format($expiryStats['expired_loss_value'], 2) ?></span>
+                            <span style="color:var(--danger);">KES <?= number_format($expiryStats['expired_loss_value'] ?? 0, 2) ?></span>
                         </div>
                     </div>
                 </div>
@@ -280,13 +280,13 @@ if (defined('BACKEND_MODE') && BACKEND_MODE) {
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php foreach ($crmStats['top_customers'] as $c): ?>
+                                <?php foreach ($crmStats['top_customers'] ?? [] as $c): ?>
                                 <tr>
-                                    <td><?= htmlspecialchars($c['first_name'] . ' ' . $c['last_name']) ?></td>
-                                    <td><?= htmlspecialchars($c['phone']) ?></td>
-                                    <td class="text-right">KES <?= number_format($c['total_spent'], 2) ?></td>
-                                    <td class="text-right"><?= $c['visit_count'] ?></td>
-                                    <td><?= $c['last_visit'] ? date('d/m/Y H:i', strtotime($c['last_visit'])) : '-' ?></td>
+                                    <td><?= htmlspecialchars(($c['first_name'] ?? '') . ' ' . ($c['last_name'] ?? '')) ?></td>
+                                    <td><?= htmlspecialchars($c['phone'] ?? '') ?></td>
+                                    <td class="text-right">KES <?= number_format($c['total_spent'] ?? 0, 2) ?></td>
+                                    <td class="text-right"><?= $c['visit_count'] ?? 0 ?></td>
+                                    <td><?= !empty($c['last_visit']) ? date('d/m/Y H:i', strtotime($c['last_visit'])) : '-' ?></td>
                                 </tr>
                                 <?php endforeach; ?>
                             </tbody>
