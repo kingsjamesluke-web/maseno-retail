@@ -1,8 +1,13 @@
 # Use official PHP-Apache image
 FROM php:8.3-apache
 
-# Install PostgreSQL extensions for PHP
-RUN apt-get update && apt-get install -y libpq-dev && docker-php-ext-install pdo pdo_pgsql pgsql
+# Install Node.js and dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    libpq-dev \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && docker-php-ext-install pdo pdo_pgsql pgsql
 
 # Set working directory
 WORKDIR /var/www/html
@@ -32,5 +37,5 @@ ENV BACKEND_URL=""
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
     CMD curl -f http://localhost/ || exit 1
 
-# Start Apache in foreground
-CMD ["apache2-foreground"]
+# Use startup script to launch both Node.js and Apache
+CMD ["bash", "/var/www/html/start.sh"]

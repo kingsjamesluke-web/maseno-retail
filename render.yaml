@@ -1,7 +1,7 @@
 services:
-  # Frontend PHP Service
+  # Unified PHP + Node.js Service
   - type: web
-    name: maseno-retail-frontend
+    name: maseno-retail
     runtime: docker
     plan: free
     rootDir: .
@@ -11,27 +11,10 @@ services:
       # REQUIRED: Set your Neon database URL in Render dashboard
       - key: DATABASE_URL
         sync: false
-      # REQUIRED: After deploying backend, set this to backend URL (e.g., https://maseno-retail-backend.onrender.com)
+      # OPTIONAL: External backend URL (leave blank for combined container mode using localhost:3000)
       - key: BACKEND_URL
         sync: false
       - key: PHP_DISPLAY_ERRORS
         value: 1
       - key: PHP_MEMORY_LIMIT
         value: 256M
-
-  # Backend Node.js Web Service
-  - type: web
-    name: maseno-retail-backend
-    runtime: node
-    plan: free
-    rootDir: .
-    buildCommand: npm install
-    startCommand: npm start
-    envVars:
-      # REQUIRED: Set your Neon database URL in Render dashboard (use same as frontend)
-      - key: DATABASE_URL
-        sync: false
-      - key: PORT
-        value: 3000
-      - key: NODE_ENV
-        value: production

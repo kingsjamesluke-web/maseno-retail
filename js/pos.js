@@ -20,14 +20,13 @@
         currentCustomerName: 'Walk-in Customer',
     };
 
-    // ── API URL helper (use BACKEND_URL in production, else same-origin) ──
+    // ── API URL helper (combined PHP+Node container uses localhost:3000) ──
     function apiUrl(path) {
-        if (typeof BACKEND_URL !== 'undefined' && BACKEND_URL) {
-            // Strip leading slash if present
-            const clean = path.replace(/^\//, '');
-            return BACKEND_URL.replace(/\/$/, '') + '/' + clean;
-        }
-        return path;
+        const backendHost = (typeof BACKEND_URL !== 'undefined' && BACKEND_URL)
+            ? BACKEND_URL.replace(/\/$/, '')
+            : 'http://localhost:3000';
+        const clean = path.replace(/^\//, '');
+        return backendHost + '/' + clean;
     }
 
     // ── DOM References ──
